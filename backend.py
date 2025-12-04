@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
-from models import async_session, Invocation, PortfolioSize, Model, Strategy, AgentActivity, StrategyStatus
+from models import async_session, Invocation, PortfolioSize, Model, Strategy, AgentActivity, StrategyStatus, ActivityType
 from markets import MARKETS
 
 logger = logging.getLogger(__name__)
@@ -371,7 +371,6 @@ async def get_strategies_context(session: AsyncSession) -> str:
         context_parts = []
         for s in strategies:
             symbols = json.loads(s.symbols) if s.symbols else []
-            backtest = json.loads(s.backtest_results) if s.backtest_results else {}
             entry_conditions = json.loads(s.entry_conditions) if s.entry_conditions else {}
             exit_conditions = json.loads(s.exit_conditions) if s.exit_conditions else {}
             
@@ -381,25 +380,21 @@ async def get_strategies_context(session: AsyncSession) -> str:
 - **Description:** {s.description}
 - **Markets:** {', '.join(symbols)}
 - **Direction:** {s.side}
+- **Timeframe:** {s.timeframe}
 - **Entry Conditions:** {json.dumps(entry_conditions)}
 - **Exit Conditions:** {json.dumps(exit_conditions)}
-- **Risk Management:** Stop Loss: {s.stop_loss_percent}%, Take Profit: {s.take_profit_percent}%
+- **Risk Management:** Stop Loss: {s.stop_loss_percent}%, Take Profit: {s.take_profit_percent}%, Position Size: ${s.position_size_usd}
 - **Backtest Results:**
-  - Total Trades: {backtest.get('total_trades', 0)}
-  - Win Rate: {backtest.get('win_rate', 0) * 100:.1f}%
-  - Total P&L: {backtest.get('total_pnl_percent', 0):.2f}%
-  - Sharpe Ratio: {backtest.get('sharpe_ratio', 0):.2f}
-  - Max Drawdown: {backtest.get('max_drawdown_percent', 0):.2f}%
+  - Total Trades: {s.backtest_total_trades or 0}
+  - Win Rate: {(s.backtest_win_rate or 0) * 100:.1f}%
+  - Profit Factor: {s.backtest_profit_factor or 0:.2f}
+  - Max Drawdown: {s.backtest_max_drawdown or 0:.2f}%
+  - Sharpe Ratio: {s.backtest_sharpe_ratio or 0:.2f}
 - **Live Performance:**
-  - Total Trades: {s.live_total_trades}
-  - Winning Trades: {s.live_winning_trades}
-  - Live P&L: ${s.live_total_pnl:.2f}
+  - Total Trades: {s.live_trades}
+  - Winning Trades: {s.live_wins}
+  - Live P&L: ${s.live_pnl:.2f}
 - **Created:** {s.created_at.strftime('%Y-%m-%d %H:%M')}"""
-            
-            if s.deployed_at:
-                strategy_text += f"\n- **Deployed:** {s.deployed_at.strftime('%Y-%m-%d %H:%M')}"
-            if s.retired_at:
-                strategy_text += f"\n- **Retired:** {s.retired_at.strftime('%Y-%m-%d %H:%M')}"
             
             context_parts.append(strategy_text)
         
@@ -425,10 +420,10 @@ async def get_activities_context(session: AsyncSession) -> str:
             details = json.loads(a.details) if a.details else {}
             time_str = a.created_at.strftime('%Y-%m-%d %H:%M')
             
-            activity_text = f"- [{time_str}] **{a.type.value}**: {a.title}"
+            activity_text = f"- [{time_str}] **{a.activity_type.value}**: {a.title}"
             if a.description:
                 activity_text += f" - {a.description}"
-            if a.symbol:
+            if hasattr(a, 'symbol') and a.symbol:
                 activity_text += f" (Symbol: {a.symbol})"
             
             context_parts.append(activity_text)
