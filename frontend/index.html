@@ -452,6 +452,178 @@
             to { opacity: 1; transform: translate(-50%, 0); }
         }
 
+        /* Activity Log */
+        .activity-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .activity-item {
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent-blue);
+            font-size: 12px;
+        }
+
+        .activity-item.STRATEGY_CREATED {
+            border-left-color: var(--accent-purple);
+        }
+
+        .activity-item.TRADE_EXECUTED {
+            border-left-color: var(--accent-green);
+        }
+
+        .activity-item.BACKTEST_COMPLETED {
+            border-left-color: var(--accent-blue);
+        }
+
+        .activity-item.STRATEGY_DEPLOYED {
+            border-left-color: var(--accent-green);
+        }
+
+        .activity-item.STRATEGY_RETIRED {
+            border-left-color: var(--accent-red);
+        }
+
+        .activity-item.ERROR {
+            border-left-color: var(--accent-red);
+        }
+
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 4px;
+        }
+
+        .activity-title {
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .activity-time {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .activity-desc {
+            color: var(--text-secondary);
+            font-size: 11px;
+        }
+
+        .activity-type-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        /* Strategy Cards */
+        .strategy-card {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+        }
+
+        .strategy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .strategy-name {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .strategy-status {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .strategy-status.ACTIVE {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--accent-green);
+        }
+
+        .strategy-status.APPROVED {
+            background: rgba(68, 136, 255, 0.15);
+            color: var(--accent-blue);
+        }
+
+        .strategy-status.PAUSED {
+            background: rgba(136, 85, 255, 0.15);
+            color: var(--accent-purple);
+        }
+
+        .strategy-status.RETIRED {
+            background: rgba(255, 68, 102, 0.15);
+            color: var(--accent-red);
+        }
+
+        .strategy-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .strategy-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Main tabs */
+        .main-tabs {
+            display: flex;
+            gap: 0;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .main-tab {
+            padding: 12px 24px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .main-tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .main-tab.active {
+            color: var(--accent-green);
+            border-bottom-color: var(--accent-green);
+        }
+
+        .main-tab-content {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .main-tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+
         /* Chat Area */
         .chat-container {
             flex: 1;
@@ -778,6 +950,8 @@
             <div class="sidebar-tabs">
                 <div class="sidebar-tab active" onclick="switchTab('positions')">Positions</div>
                 <div class="sidebar-tab" onclick="switchTab('history')">History</div>
+                <div class="sidebar-tab" onclick="switchTab('activity')">🤖 AI</div>
+                <div class="sidebar-tab" onclick="switchTab('strategies')">📊</div>
             </div>
 
             <div id="positionsTab" class="tab-content active">
@@ -792,6 +966,22 @@
                 <div class="history-section">
                     <div id="tradeHistory">
                         <div class="no-trades">Loading trade history...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="activityTab" class="tab-content">
+                <div class="activity-section">
+                    <div id="activityLog">
+                        <div class="no-positions">Loading activity...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="strategiesTab" class="tab-content">
+                <div class="activity-section">
+                    <div id="strategiesList">
+                        <div class="no-positions">Loading strategies...</div>
                     </div>
                 </div>
             </div>
@@ -851,8 +1041,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             fetchStatus();
             fetchTradeHistory();
+            fetchActivities();
+            fetchStrategies();
             setInterval(fetchStatus, 30000); // Update every 30s
             setInterval(fetchTradeHistory, 30000); // Update history every 30s
+            setInterval(fetchActivities, 10000); // Update activities every 10s
+            setInterval(fetchStrategies, 30000); // Update strategies every 30s
             autoResizeTextarea();
         });
 
@@ -966,6 +1160,83 @@
                             ${txLink}
                         </div>
                         <div class="trade-time">${time}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fetch agent activities
+        async function fetchActivities() {
+            try {
+                const response = await fetch('/activities?limit=50');
+                const data = await response.json();
+                updateActivities(data.activities);
+            } catch (error) {
+                console.error('Failed to fetch activities:', error);
+            }
+        }
+
+        // Update activities display
+        function updateActivities(activities) {
+            const container = document.getElementById('activityLog');
+            
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<div class="no-positions">No agent activity yet. Enable autonomous mode to see the AI work!</div>';
+                return;
+            }
+            
+            container.innerHTML = activities.map(activity => {
+                const time = new Date(activity.created_at).toLocaleTimeString();
+                const date = new Date(activity.created_at).toLocaleDateString();
+                
+                return `
+                    <div class="activity-item ${activity.type}">
+                        <span class="activity-type-badge">${activity.type.replace(/_/g, ' ')}</span>
+                        <div class="activity-header">
+                            <span class="activity-title">${activity.title}</span>
+                            <span class="activity-time">${time}</span>
+                        </div>
+                        ${activity.description ? `<div class="activity-desc">${activity.description}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fetch strategies
+        async function fetchStrategies() {
+            try {
+                const response = await fetch('/strategies');
+                const data = await response.json();
+                updateStrategies(data.strategies);
+            } catch (error) {
+                console.error('Failed to fetch strategies:', error);
+            }
+        }
+
+        // Update strategies display
+        function updateStrategies(strategies) {
+            const container = document.getElementById('strategiesList');
+            
+            if (!strategies || strategies.length === 0) {
+                container.innerHTML = '<div class="no-positions">No strategies yet. The autonomous agent will create them!</div>';
+                return;
+            }
+            
+            container.innerHTML = strategies.map(strategy => {
+                const winRate = strategy.backtest?.win_rate ? (strategy.backtest.win_rate * 100).toFixed(0) + '%' : '-';
+                const pnl = strategy.live?.pnl ? '$' + strategy.live.pnl.toFixed(2) : '$0';
+                
+                return `
+                    <div class="strategy-card">
+                        <div class="strategy-header">
+                            <span class="strategy-name">${strategy.name}</span>
+                            <span class="strategy-status ${strategy.status}">${strategy.status}</span>
+                        </div>
+                        <div class="strategy-stats">
+                            <span class="strategy-stat">📈 ${strategy.symbols?.join(', ') || '-'}</span>
+                            <span class="strategy-stat">🎯 ${winRate} win</span>
+                            <span class="strategy-stat">💰 ${pnl}</span>
+                        </div>
                     </div>
                 `;
             }).join('');

@@ -643,6 +643,209 @@ async def get_trade_history(
         return {"trades": [], "error": str(e)}
 
 
+# ============================================================================
+# AUTONOMOUS AGENT ENDPOINTS
+# ============================================================================
+
+@app.get("/activities")
+async def get_activities(
+    limit: int = Query(default=50, ge=1, le=200),
+    session: AsyncSession = Depends(get_db)
+):
+    """Get autonomous agent activity log."""
+    try:
+        from models import AgentActivity
+        
+        result = await session.execute(
+            select(AgentActivity)
+            .order_by(AgentActivity.created_at.desc())
+            .limit(limit)
+        )
+        activities = result.scalars().all()
+        
+        return {
+            "activities": [
+                {
+                    "id": a.id,
+                    "type": a.activity_type.value,
+                    "title": a.title,
+                    "description": a.description,
+                    "details": json.loads(a.details) if a.details else {},
+                    "strategy_id": a.strategy_id,
+                    "symbol": a.symbol,
+                    "created_at": a.created_at.isoformat(),
+                }
+                for a in activities
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Activities error: {e}")
+        return {"activities": [], "error": str(e)}
+
+
+@app.get("/strategies")
+async def get_strategies(
+    session: AsyncSession = Depends(get_db)
+):
+    """Get all trading strategies."""
+    try:
+        from models import Strategy
+        
+        result = await session.execute(
+            select(Strategy).order_by(Strategy.created_at.desc())
+        )
+        strategies = result.scalars().all()
+        
+        return {
+            "strategies": [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "description": s.description,
+                    "symbols": json.loads(s.symbols) if s.symbols else [],
+                    "side": s.side,
+                    "status": s.status.value,
+                    "backtest": {
+                        "win_rate": s.backtest_win_rate,
+                        "total_trades": s.backtest_total_trades,
+                        "profit_factor": s.backtest_profit_factor,
+                        "max_drawdown": s.backtest_max_drawdown,
+                        "sharpe_ratio": s.backtest_sharpe_ratio,
+                    },
+                    "live": {
+                        "trades": s.live_trades,
+                        "wins": s.live_wins,
+                        "pnl": s.live_pnl,
+                        "win_rate": s.live_wins / s.live_trades if s.live_trades > 0 else 0,
+                    },
+                    "created_at": s.created_at.isoformat(),
+                    "deployed_at": s.deployed_at.isoformat() if s.deployed_at else None,
+                }
+                for s in strategies
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Strategies error: {e}")
+        return {"strategies": [], "error": str(e)}
+
+
+@app.get("/strategies/{strategy_id}")
+async def get_strategy(
+    strategy_id: str,
+    session: AsyncSession = Depends(get_db)
+):
+    """Get details of a specific strategy."""
+    try:
+        from models import Strategy, StrategyTrade
+        
+        result = await session.execute(
+            select(Strategy).where(Strategy.id == strategy_id)
+        )
+        strategy = result.scalar_one_or_none()
+        
+        if not strategy:
+            return {"error": "Strategy not found"}
+        
+        # Get trades
+        trades_result = await session.execute(
+            select(StrategyTrade)
+            .where(StrategyTrade.strategy_id == strategy_id)
+            .order_by(StrategyTrade.entry_time.desc())
+            .limit(50)
+        )
+        trades = trades_result.scalars().all()
+        
+        return {
+            "strategy": {
+                "id": strategy.id,
+                "name": strategy.name,
+                "description": strategy.description,
+                "symbols": json.loads(strategy.symbols) if strategy.symbols else [],
+                "side": strategy.side,
+                "timeframe": strategy.timeframe,
+                "entry_conditions": json.loads(strategy.entry_conditions) if strategy.entry_conditions else [],
+                "exit_conditions": json.loads(strategy.exit_conditions) if strategy.exit_conditions else [],
+                "stop_loss_percent": strategy.stop_loss_percent,
+                "take_profit_percent": strategy.take_profit_percent,
+                "status": strategy.status.value,
+                "backtest": {
+                    "win_rate": strategy.backtest_win_rate,
+                    "total_trades": strategy.backtest_total_trades,
+                    "profit_factor": strategy.backtest_profit_factor,
+                    "max_drawdown": strategy.backtest_max_drawdown,
+                    "sharpe_ratio": strategy.backtest_sharpe_ratio,
+                },
+                "live": {
+                    "trades": strategy.live_trades,
+                    "wins": strategy.live_wins,
+                    "pnl": strategy.live_pnl,
+                },
+                "created_at": strategy.created_at.isoformat(),
+                "deployed_at": strategy.deployed_at.isoformat() if strategy.deployed_at else None,
+            },
+            "trades": [
+                {
+                    "id": t.id,
+                    "symbol": t.symbol,
+                    "side": t.side,
+                    "entry_price": t.entry_price,
+                    "entry_quantity": t.entry_quantity,
+                    "entry_time": t.entry_time.isoformat(),
+                    "exit_price": t.exit_price,
+                    "exit_time": t.exit_time.isoformat() if t.exit_time else None,
+                    "exit_reason": t.exit_reason,
+                    "pnl": t.pnl,
+                    "pnl_percent": t.pnl_percent,
+                    "is_win": t.is_win,
+                    "is_open": t.is_open,
+                }
+                for t in trades
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Strategy detail error: {e}")
+        return {"error": str(e)}
+
+
+class ToggleStrategyRequest(BaseModel):
+    active: bool
+
+
+@app.post("/strategies/{strategy_id}/toggle")
+async def toggle_strategy(
+    strategy_id: str,
+    request: ToggleStrategyRequest,
+    session: AsyncSession = Depends(get_db)
+):
+    """Enable or disable a strategy."""
+    try:
+        from models import Strategy, StrategyStatus
+        
+        result = await session.execute(
+            select(Strategy).where(Strategy.id == strategy_id)
+        )
+        strategy = result.scalar_one_or_none()
+        
+        if not strategy:
+            return {"success": False, "error": "Strategy not found"}
+        
+        if request.active:
+            strategy.status = StrategyStatus.ACTIVE
+            strategy.deployed_at = datetime.utcnow()
+        else:
+            strategy.status = StrategyStatus.PAUSED
+        
+        await session.commit()
+        
+        return {
+            "success": True,
+            "status": strategy.status.value
+        }
+    except Exception as e:
+        logger.error(f"Toggle strategy error: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # Serve frontend
 @app.get("/")
 async def serve_frontend():
