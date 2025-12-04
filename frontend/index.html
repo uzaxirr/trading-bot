@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drift Trading Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-hover: #22222e;
+            --border-color: #2a2a3a;
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888a0;
+            --text-muted: #555566;
+            --accent-green: #00ff88;
+            --accent-green-dim: #00cc6e;
+            --accent-red: #ff4466;
+            --accent-blue: #4488ff;
+            --accent-purple: #8855ff;
+            --gradient-start: #00ff88;
+            --gradient-end: #00ccff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--text-muted);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-value {
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .portfolio-card {
+            margin: 16px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .portfolio-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 4px;
+        }
+
+        .portfolio-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .portfolio-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .positions-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .position-card {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+        }
+
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .position-symbol {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .position-side {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .position-side.long {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--accent-green);
+        }
+
+        .position-side.short {
+            background: rgba(255, 68, 102, 0.15);
+            color: var(--accent-red);
+        }
+
+        .position-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .pnl-positive {
+            color: var(--accent-green);
+        }
+
+        .pnl-negative {
+            color: var(--accent-red);
+        }
+
+        .no-positions {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .position-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .close-btn {
+            flex: 1;
+            padding: 6px 12px;
+            background: rgba(255, 68, 102, 0.15);
+            border: 1px solid var(--accent-red);
+            border-radius: 6px;
+            color: var(--accent-red);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: var(--accent-red);
+            color: #000;
+        }
+
+        .close-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .close-btn.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .close-btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid var(--accent-red);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Trade History Section */
+        .history-section {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .trade-item {
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .trade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .trade-symbol {
+            font-weight: 600;
+        }
+
+        .trade-type {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .trade-type.open {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--accent-green);
+        }
+
+        .trade-type.close {
+            background: rgba(255, 68, 102, 0.15);
+            color: var(--accent-red);
+        }
+
+        .trade-details {
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .trade-time {
+            color: var(--text-muted);
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        .trade-link {
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-size: 10px;
+        }
+
+        .trade-link:hover {
+            text-decoration: underline;
+        }
+
+        .no-trades {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        /* Tabs */
+        .sidebar-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .sidebar-tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .sidebar-tab.active {
+            color: var(--accent-green);
+            border-bottom-color: var(--accent-green);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        }
+
+        .toast.success {
+            border-color: var(--accent-green);
+        }
+
+        .toast.error {
+            border-color: var(--accent-red);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        /* Chat Area */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+        }
+
+        .message.user .message-avatar {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+        }
+
+        .message-content {
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .message.assistant .message-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--accent-green-dim), #00aa88);
+            color: #000;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-content p {
+            margin-bottom: 8px;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content ul, .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .message-content li {
+            margin-bottom: 4px;
+        }
+
+        .message-content code {
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        .message-content strong {
+            color: var(--accent-green);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-4px); opacity: 1; }
+        }
+
+        /* Chat Input */
+        .chat-input-container {
+            padding: 16px 24px 24px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 8px 8px 8px 20px;
+            align-items: flex-end;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input-wrapper:focus-within {
+            border-color: var(--accent-green);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            max-height: 120px;
+            padding: 8px 0;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-button {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: #000;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .send-button:hover {
+            transform: scale(1.05);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .send-button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Welcome Message */
+        .welcome-message {
+            text-align: center;
+            padding: 48px 24px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .welcome-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .welcome-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .quick-action {
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-action:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--accent-green);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .status-bar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">⚡</div>
+            <span class="logo-text">Drift Trading Agent</span>
+        </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-value" id="statusText">Connecting...</span>
+            </div>
+            <div class="status-item">
+                <span style="color: var(--text-muted)">Portfolio:</span>
+                <span class="status-value" id="headerPortfolio">--</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Account Overview</div>
+            </div>
+            
+            <div class="portfolio-card">
+                <div class="portfolio-value" id="portfolioValue">$--</div>
+                <div class="portfolio-label">Total Collateral</div>
+                <div class="portfolio-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="freeCollateral">$--</div>
+                        <div class="stat-label">Free Margin</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="leverage">--</div>
+                        <div class="stat-label">Leverage</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="netValue">$--</div>
+                        <div class="stat-label">Net Value</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="health">--%</div>
+                        <div class="stat-label">Health</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-tabs">
+                <div class="sidebar-tab active" onclick="switchTab('positions')">Positions</div>
+                <div class="sidebar-tab" onclick="switchTab('history')">History</div>
+            </div>
+
+            <div id="positionsTab" class="tab-content active">
+                <div class="positions-section">
+                    <div id="positionsList">
+                        <div class="no-positions">Loading positions...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="historyTab" class="tab-content">
+                <div class="history-section">
+                    <div id="tradeHistory">
+                        <div class="no-trades">Loading trade history...</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <div class="welcome-icon">🤖</div>
+                    <h2 class="welcome-title">Welcome to Drift Trading Agent</h2>
+                    <p class="welcome-subtitle">
+                        I'm your AI trading assistant for Drift Protocol on Solana. 
+                        Ask me about your portfolio, market analysis, or trading strategies.
+                    </p>
+                    <div class="quick-actions">
+                        <button class="quick-action" onclick="sendQuickMessage('What\'s my current portfolio status?')">📊 Portfolio Status</button>
+                        <button class="quick-action" onclick="sendQuickMessage('What markets are looking bullish right now?')">📈 Market Analysis</button>
+                        <button class="quick-action" onclick="sendQuickMessage('Explain my open positions')">💼 My Positions</button>
+                        <button class="quick-action" onclick="sendQuickMessage('What trading strategies would you recommend?')">🎯 Strategies</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        class="chat-input" 
+                        id="chatInput" 
+                        placeholder="Ask me about your portfolio, markets, or trading..." 
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                    ></textarea>
+                    <button class="send-button" id="sendButton" onclick="sendMessage()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // State
+        let messages = [];
+        let isLoading = false;
+
+        // DOM Elements
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendButton = document.getElementById('sendButton');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStatus();
+            fetchTradeHistory();
+            setInterval(fetchStatus, 30000); // Update every 30s
+            setInterval(fetchTradeHistory, 30000); // Update history every 30s
+            autoResizeTextarea();
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.sidebar-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Close position
+        async function closePosition(symbol) {
+            const btn = event.target;
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/close-position', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`✅ Closed ${symbol} position`, 'success');
+                    if (data.tx_signature) {
+                        console.log('TX:', data.tx_signature);
+                    }
+                    // Refresh status
+                    setTimeout(fetchStatus, 2000);
+                    setTimeout(fetchTradeHistory, 2000);
+                } else {
+                    showToast(`❌ ${data.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Close position error:', error);
+                showToast('❌ Failed to close position', 'error');
+            }
+            
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+
+        // Fetch trade history
+        async function fetchTradeHistory() {
+            try {
+                const response = await fetch('/trade-history?limit=20');
+                const data = await response.json();
+                updateTradeHistory(data.trades);
+            } catch (error) {
+                console.error('Failed to fetch trade history:', error);
+            }
+        }
+
+        // Update trade history display
+        function updateTradeHistory(trades) {
+            const container = document.getElementById('tradeHistory');
+            
+            if (!trades || trades.length === 0) {
+                container.innerHTML = '<div class="no-trades">No trade history yet</div>';
+                return;
+            }
+            
+            container.innerHTML = trades.map(trade => {
+                const isClose = trade.type === 'CLOSE_POSITION';
+                const typeClass = isClose ? 'close' : 'open';
+                const typeLabel = isClose ? 'Close' : trade.side || 'Open';
+                const time = new Date(trade.created_at).toLocaleString();
+                
+                let details = '';
+                if (trade.symbol && trade.quantity) {
+                    details = `${trade.quantity} ${trade.symbol}`;
+                } else if (trade.closed_positions && trade.closed_positions.length > 0) {
+                    details = trade.closed_positions.join(', ');
+                }
+                
+                let txLink = '';
+                if (trade.tx_signature) {
+                    const shortTx = trade.tx_signature.slice(0, 8) + '...' + trade.tx_signature.slice(-8);
+                    txLink = `<a class="trade-link" href="https://solscan.io/tx/${trade.tx_signature}" target="_blank">${shortTx}</a>`;
+                }
+                
+                return `
+                    <div class="trade-item">
+                        <div class="trade-header">
+                            <span class="trade-symbol">${trade.symbol || 'Position'}</span>
+                            <span class="trade-type ${typeClass}">${typeLabel}</span>
+                        </div>
+                        <div class="trade-details">
+                            <span>${details}</span>
+                            ${txLink}
+                        </div>
+                        <div class="trade-time">${time}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fetch account status
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                
+                if (data.portfolio) {
+                    statusDot.classList.remove('offline');
+                    statusText.textContent = 'Connected';
+                    
+                    document.getElementById('headerPortfolio').textContent = data.portfolio.total_collateral;
+                    document.getElementById('portfolioValue').textContent = data.portfolio.total_collateral;
+                    document.getElementById('freeCollateral').textContent = data.portfolio.free_collateral;
+                    document.getElementById('leverage').textContent = data.portfolio.leverage;
+                    document.getElementById('netValue').textContent = data.portfolio.net_value;
+                    document.getElementById('health').textContent = data.portfolio.health;
+                    
+                    updatePositions(data.positions);
+                } else {
+                    statusDot.classList.add('offline');
+                    statusText.textContent = data.status || 'Disconnected';
+                }
+            } catch (error) {
+                console.error('Failed to fetch status:', error);
+                statusDot.classList.add('offline');
+                statusText.textContent = 'Offline';
+            }
+        }
+
+        // Update positions list
+        function updatePositions(positions) {
+            const container = document.getElementById('positionsList');
+            
+            if (!positions || positions.length === 0) {
+                container.innerHTML = '<div class="no-positions">No open positions</div>';
+                return;
+            }
+            
+            container.innerHTML = positions.map(pos => {
+                const pnlClass = parseFloat(pos.unrealized_pnl.replace('$', '')) >= 0 ? 'pnl-positive' : 'pnl-negative';
+                const sideClass = pos.side.toLowerCase();
+                
+                return `
+                    <div class="position-card">
+                        <div class="position-header">
+                            <span class="position-symbol">${pos.symbol}</span>
+                            <span class="position-side ${sideClass}">${pos.side}</span>
+                        </div>
+                        <div class="position-details">
+                            <span>Size: ${pos.size}</span>
+                            <span class="${pnlClass}">PnL: ${pos.unrealized_pnl}</span>
+                        </div>
+                        <div class="position-actions">
+                            <button class="close-btn" onclick="closePosition('${pos.symbol}')">
+                                ✕ Close Position
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Handle textarea auto-resize
+        function autoResizeTextarea() {
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+        }
+
+        // Handle keyboard input
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Send quick message
+        function sendQuickMessage(text) {
+            chatInput.value = text;
+            sendMessage();
+        }
+
+        // Format message content with markdown-like parsing
+        function formatMessage(text) {
+            // Basic markdown parsing
+            let formatted = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n- /g, '</p><ul><li>')
+                .replace(/\n\d+\. /g, '</p><ol><li>');
+            
+            // Wrap in paragraph
+            formatted = '<p>' + formatted + '</p>';
+            
+            // Fix list items
+            formatted = formatted.replace(/<\/li><\/p><ul><li>/g, '</li><li>');
+            formatted = formatted.replace(/<\/li><\/p><ol><li>/g, '</li><li>');
+            
+            return formatted;
+        }
+
+        // Add message to UI
+        function addMessage(role, content) {
+            // Remove welcome message on first message
+            const welcome = document.querySelector('.welcome-message');
+            if (welcome) {
+                welcome.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = role === 'assistant' ? '🤖' : '👤';
+            const formattedContent = role === 'assistant' ? formatMessage(content) : `<p>${content}</p>`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">${formattedContent}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Add typing indicator
+        function addTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message assistant';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Remove typing indicator
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text || isLoading) return;
+            
+            isLoading = true;
+            sendButton.disabled = true;
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            
+            // Add user message
+            messages.push({ role: 'user', content: text });
+            addMessage('user', text);
+            
+            // Show typing indicator
+            addTypingIndicator();
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages })
+                });
+                
+                const data = await response.json();
+                
+                // Remove typing indicator
+                removeTypingIndicator();
+                
+                // Add assistant message
+                messages.push({ role: 'assistant', content: data.response });
+                addMessage('assistant', data.response);
+                
+                // Update status if available
+                if (data.portfolio) {
+                    document.getElementById('headerPortfolio').textContent = data.portfolio.total_collateral;
+                    document.getElementById('portfolioValue').textContent = data.portfolio.total_collateral;
+                    document.getElementById('freeCollateral').textContent = data.portfolio.free_collateral;
+                }
+                
+                if (data.positions) {
+                    updatePositions(data.positions);
+                }
+                
+            } catch (error) {
+                console.error('Chat error:', error);
+                removeTypingIndicator();
+                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+            }
+            
+            isLoading = false;
+            sendButton.disabled = false;
+            chatInput.focus();
+        }
+    </script>
+</body>
+</html>
+
