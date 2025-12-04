@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
-from models import async_session, Invocation, PortfolioSize, Model
+from models import async_session, Invocation, PortfolioSize, Model, Strategy, AgentActivity, StrategyStatus
 from markets import MARKETS
 
 logger = logging.getLogger(__name__)
@@ -200,17 +200,33 @@ class ChatResponse(BaseModel):
 
 
 # Chat system prompt
-CHAT_SYSTEM_PROMPT = """You are an AI trading assistant for the Drift Protocol on Solana. You can execute trades directly on behalf of the user.
+CHAT_SYSTEM_PROMPT = """You are an AI trading assistant for the Drift Protocol on Solana. You can execute trades directly AND you have full knowledge of the autonomous trading agent running in the background.
 
-Current Account Status:
+## Current Account Status
 {account_status}
 
-Available Markets: {markets}
+## Available Markets
+{markets}
 
+## Autonomous Agent Strategies
+{strategies_context}
+
+## Recent Agent Activity
+{activities_context}
+
+## Your Capabilities
 You have access to trading tools:
 - openPosition: Open a new LONG or SHORT position
 - closePosition: Close a specific position by symbol
 - closeAllPositions: Close all open positions
+
+You also have complete knowledge of:
+- All strategies created by the autonomous agent
+- Backtest results and performance metrics
+- Recent agent activities and decisions
+- Why strategies were created, deployed, or retired
+
+When the user asks about strategies or what "you" have been doing, refer to the autonomous agent's activities above. You ARE the same AI - the autonomous agent is just you running on a schedule.
 
 When the user asks you to trade:
 1. Confirm the trade details with them first if they're vague
@@ -341,6 +357,88 @@ async def get_account_status(session: AsyncSession) -> dict:
         }
 
 
+async def get_strategies_context(session: AsyncSession) -> str:
+    """Get formatted context about all strategies for chat."""
+    try:
+        result = await session.execute(
+            select(Strategy).order_by(Strategy.created_at.desc()).limit(10)
+        )
+        strategies = result.scalars().all()
+        
+        if not strategies:
+            return "No strategies have been created yet. The autonomous agent will create strategies based on market analysis."
+        
+        context_parts = []
+        for s in strategies:
+            symbols = json.loads(s.symbols) if s.symbols else []
+            backtest = json.loads(s.backtest_results) if s.backtest_results else {}
+            entry_conditions = json.loads(s.entry_conditions) if s.entry_conditions else {}
+            exit_conditions = json.loads(s.exit_conditions) if s.exit_conditions else {}
+            
+            # Format strategy details
+            strategy_text = f"""
+### {s.name} [{s.status.value}]
+- **Description:** {s.description}
+- **Markets:** {', '.join(symbols)}
+- **Direction:** {s.side}
+- **Entry Conditions:** {json.dumps(entry_conditions)}
+- **Exit Conditions:** {json.dumps(exit_conditions)}
+- **Risk Management:** Stop Loss: {s.stop_loss_percent}%, Take Profit: {s.take_profit_percent}%
+- **Backtest Results:**
+  - Total Trades: {backtest.get('total_trades', 0)}
+  - Win Rate: {backtest.get('win_rate', 0) * 100:.1f}%
+  - Total P&L: {backtest.get('total_pnl_percent', 0):.2f}%
+  - Sharpe Ratio: {backtest.get('sharpe_ratio', 0):.2f}
+  - Max Drawdown: {backtest.get('max_drawdown_percent', 0):.2f}%
+- **Live Performance:**
+  - Total Trades: {s.live_total_trades}
+  - Winning Trades: {s.live_winning_trades}
+  - Live P&L: ${s.live_total_pnl:.2f}
+- **Created:** {s.created_at.strftime('%Y-%m-%d %H:%M')}"""
+            
+            if s.deployed_at:
+                strategy_text += f"\n- **Deployed:** {s.deployed_at.strftime('%Y-%m-%d %H:%M')}"
+            if s.retired_at:
+                strategy_text += f"\n- **Retired:** {s.retired_at.strftime('%Y-%m-%d %H:%M')}"
+            
+            context_parts.append(strategy_text)
+        
+        return "\n".join(context_parts)
+    except Exception as e:
+        logger.warning(f"Failed to get strategies context: {e}")
+        return "Unable to fetch strategies at this time."
+
+
+async def get_activities_context(session: AsyncSession) -> str:
+    """Get formatted context about recent agent activities for chat."""
+    try:
+        result = await session.execute(
+            select(AgentActivity).order_by(AgentActivity.created_at.desc()).limit(20)
+        )
+        activities = result.scalars().all()
+        
+        if not activities:
+            return "No activities yet. The autonomous agent will log its market analysis, strategy creation, and trading activities here."
+        
+        context_parts = []
+        for a in activities:
+            details = json.loads(a.details) if a.details else {}
+            time_str = a.created_at.strftime('%Y-%m-%d %H:%M')
+            
+            activity_text = f"- [{time_str}] **{a.type.value}**: {a.title}"
+            if a.description:
+                activity_text += f" - {a.description}"
+            if a.symbol:
+                activity_text += f" (Symbol: {a.symbol})"
+            
+            context_parts.append(activity_text)
+        
+        return "\n".join(context_parts)
+    except Exception as e:
+        logger.warning(f"Failed to get activities context: {e}")
+        return "Unable to fetch activities at this time."
+
+
 async def execute_chat_tool(tool_name: str, tool_input: dict, session: AsyncSession) -> str:
     """Execute a trading tool and return the result."""
     try:
@@ -431,10 +529,16 @@ Open Positions:"""
         else:
             status_text = account_status["status"]
         
-        # Build system prompt
+        # Get autonomous agent context
+        strategies_context = await get_strategies_context(session)
+        activities_context = await get_activities_context(session)
+        
+        # Build system prompt with full context
         system_prompt = CHAT_SYSTEM_PROMPT.format(
             account_status=status_text,
-            markets=", ".join(MARKETS.keys())
+            markets=", ".join(MARKETS.keys()),
+            strategies_context=strategies_context,
+            activities_context=activities_context
         )
         
         # Create Anthropic client
