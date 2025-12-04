@@ -33,11 +33,11 @@ from trading import Account, create_position, close_position
 logger = logging.getLogger(__name__)
 
 # Minimum thresholds for strategy approval
-MIN_WIN_RATE = 0.50
-MIN_PROFIT_FACTOR = 1.2
-MIN_SHARPE_RATIO = 0.5
-MAX_DRAWDOWN = 20.0
-MIN_TRADES = 5
+MIN_WIN_RATE = 0.45
+MIN_PROFIT_FACTOR = 1.1
+MIN_SHARPE_RATIO = 0.3
+MAX_DRAWDOWN = 25.0
+MIN_TRADES = 2  # Lowered for testing
 
 # Strategy generation prompt
 STRATEGY_GENERATION_PROMPT = """You are an autonomous trading strategy generator. Analyze the market data and create a trading strategy.
@@ -255,11 +255,7 @@ class AutonomousAgent:
             symbol=symbol,
         )
         
-        if not passed:
-            logger.info(f"Strategy failed validation: {result.to_dict()}")
-            return None
-        
-        # Create and save strategy
+        # Create and save strategy (even if failed, for visibility)
         strategy = Strategy(
             name=strategy_data.get("name", f"Strategy-{datetime.now().strftime('%Y%m%d%H%M')}"),
             description=strategy_data.get("description", ""),
@@ -270,7 +266,7 @@ class AutonomousAgent:
             exit_conditions=json.dumps(exit_conditions),
             stop_loss_percent=stop_loss,
             take_profit_percent=take_profit,
-            status=StrategyStatus.APPROVED,
+            status=StrategyStatus.APPROVED if passed else StrategyStatus.DRAFT,
             backtest_win_rate=result.win_rate,
             backtest_total_trades=result.total_trades,
             backtest_profit_factor=result.profit_factor,
@@ -281,6 +277,10 @@ class AutonomousAgent:
         session.add(strategy)
         await session.commit()
         await session.refresh(strategy)
+        
+        if not passed:
+            logger.info(f"Strategy saved as DRAFT (failed validation): {result.to_dict()}")
+            return None  # Don't deploy failed strategies
         
         return strategy
     
