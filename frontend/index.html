@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --bg-primary: #0a0a0f;
@@ -698,32 +699,142 @@
         }
 
         .message-content p {
-            margin-bottom: 8px;
+            margin-bottom: 12px;
         }
 
         .message-content p:last-child {
             margin-bottom: 0;
         }
 
+        /* Headings */
+        .message-content h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin: 16px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .message-content h2 {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin: 14px 0 10px 0;
+        }
+
+        .message-content h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--accent-blue);
+            margin: 12px 0 8px 0;
+        }
+
+        .message-content h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 10px 0 6px 0;
+        }
+
+        /* Lists */
         .message-content ul, .message-content ol {
-            margin: 8px 0;
-            padding-left: 20px;
+            margin: 8px 0 12px 0;
+            padding-left: 24px;
         }
 
         .message-content li {
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            line-height: 1.5;
         }
 
+        .message-content li > ul,
+        .message-content li > ol {
+            margin: 4px 0;
+        }
+
+        /* Inline code */
         .message-content code {
             background: var(--bg-tertiary);
             padding: 2px 6px;
             border-radius: 4px;
             font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-purple);
+        }
+
+        /* Code blocks */
+        .message-content pre {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            overflow-x: auto;
+        }
+
+        .message-content pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-primary);
             font-size: 13px;
         }
 
+        /* Bold & emphasis */
         .message-content strong {
             color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .message-content em {
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Blockquotes */
+        .message-content blockquote {
+            border-left: 3px solid var(--accent-blue);
+            padding-left: 12px;
+            margin: 12px 0;
+            color: var(--text-secondary);
+        }
+
+        /* Tables */
+        .message-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+
+        .message-content th,
+        .message-content td {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .message-content th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        /* Horizontal rule */
+        .message-content hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 16px 0;
+        }
+
+        /* Links */
+        .message-content a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .message-content a:hover {
+            text-decoration: underline;
         }
 
         .typing-indicator {
@@ -1328,23 +1439,16 @@
 
         // Format message content with markdown-like parsing
         function formatMessage(text) {
-            // Basic markdown parsing
-            let formatted = text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>')
-                .replace(/\n\n/g, '</p><p>')
-                .replace(/\n- /g, '</p><ul><li>')
-                .replace(/\n\d+\. /g, '</p><ol><li>');
-            
-            // Wrap in paragraph
-            formatted = '<p>' + formatted + '</p>';
-            
-            // Fix list items
-            formatted = formatted.replace(/<\/li><\/p><ul><li>/g, '</li><li>');
-            formatted = formatted.replace(/<\/li><\/p><ol><li>/g, '</li><li>');
-            
-            return formatted;
+            // Use marked.js for proper markdown rendering
+            if (typeof marked !== 'undefined') {
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true,
+                });
+                return marked.parse(text);
+            }
+            // Fallback if marked not loaded
+            return text.replace(/\n/g, '<br>');
         }
 
         // Add message to UI
